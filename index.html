@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선분에 이르는 거리가 같은 지점은?</title>
+    <style>
+        body {
+            font-family: 'Pretendard', 'Arial', sans-serif;
+            text-align: center;
+            background-color: #e3f2fd; 
+            margin: 0;
+            padding: 20px;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        *, *::before, *::after { box-sizing: inherit; }
+
+        #game-card {
+            max-width: 650px;
+            margin: 0 auto;
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        .header-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            background: #e1f5fe;
+            padding: 10px 20px;
+            border-radius: 10px;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: min(500px, 90vw);
+            height: min(500px, 90vw);
+            max-width: 500px;
+            max-height: 500px;
+            margin: 0 auto;
+        }
+
+        #top-score-banner {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 2px solid #0288d1;
+            border-radius: 12px;
+            padding: 8px 15px;
+            display: none;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            z-index: 5;
+            animation: fadeIn 0.2s ease-in-out;
+            flex-wrap: wrap;
+            gap: 6px 12px;
+        }
+
+        .banner-item { font-size: 15px; font-weight: bold; color: #0277bd; }
+        .banner-score { font-size: 20px; color: #01579b; font-weight: 900; }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border: 3px solid #29b6f6;
+            background-color: #fcfcfc;
+            cursor: pointer;
+            border-radius: 12px;
+            touch-action: none;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #03a9f4;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px 5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: 0.2s;
+        }
+        .btn:hover { background-color: #0288d1; transform: translateY(-2px); }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
+
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #29b6f6;
+            border-radius: 8px;
+            width: 70%;
+            max-width: 320px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .report-container {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border: 1px solid #b3e5fc;
+            border-radius: 8px;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border-bottom: 1px solid #ddd; font-size: 14px; }
+        th { background-color: #e1f5fe; position: sticky; top: 0; z-index: 1; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -10px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @media (max-width: 600px) {
+            body { padding: 12px; }
+            #game-card { padding: 16px; border-radius: 16px; }
+            .header-panel { font-size: 15px; padding: 10px 12px; justify-content: center; }
+            .btn { width: 100%; max-width: 320px; margin: 8px auto; display: block; }
+            input[type="text"] { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-card">
+    <h2>🎯 선분에 이르는 거리가 같은 지점은?</h2>
+
+    <div id="start-screen">
+        <p>주어진 <b>선분들로부터 가장 거리가 같은 지점</b>에 점을 놓아주세요!</p>
+        <p style="font-size: 13px; color: #555;">💡 힌트: 점(●)에서 선까지 가장 가까운 <b>수직 거리</b>를 잽니다.</p>
+        <input type="text" id="nickname" placeholder="닉네임을 입력하세요" maxlength="8"><br>
+        <button class="btn" onclick="startGame()">게임 시작하기</button>
+    </div>
+
+    <div id="play-screen" style="display:none;">
+        <div class="header-panel">
+            <span id="player-display"></span>
+            <span id="stage-text">ROUND 1 / 8</span>
+            <span id="score-text">총점: 0점</span>
+        </div>
+
+        <div class="canvas-container">
+            <div id="top-score-banner">
+                <div class="banner-item">🎯 라운드 점수: <span class="banner-score" id="banner-round-score">0점</span></div>
+                <div class="banner-item">📏 <span id="banner-std-dev">거리의 오차: 0</span></div>
+            </div>
+            <canvas id="gameCanvas" width="500" height="500"></canvas>
+        </div>
+
+        <div id="instruction" style="margin-top: 10px; font-weight: bold; color: #444;">
+            원하는 위치를 클릭하거나 누른 채로 끌어서 점(●)을 놓아보세요!
+        </div>
+        <div>
+            <button id="confirm-btn" class="btn" onclick="confirmPosition()" disabled>이 위치 확정하기</button>
+            <button id="next-btn" class="btn" onclick="nextStage()" style="display:none;">다음 라운드 ➔</button>
+        </div>
+    </div>
+
+    <div id="end-screen" style="display:none;">
+        <h3>🎉 게임 종료! 🎉</h3>
+        <p>수고하셨습니다, <strong id="final-player"></strong>님!</p>
+        <div style="font-size: 36px; color: #03a9f4; font-weight: bold; margin-bottom: 15px;" id="final-score">0점</div>
+
+        <h4>📊 라운드별 상세 리포트</h4>
+        <div class="report-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>라운드</th>
+                        <th>유형</th>
+                        <th>점수</th>
+                        <th>거리 오차</th>
+                    </tr>
+                </thead>
+                <tbody id="report-body"></tbody>
+            </table>
+        </div>
+        <br>
+        <button class="btn" onclick="restartGame()">다시하기 🔄</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const startScreen = document.getElementById('start-screen');
+const playScreen = document.getElementById('play-screen');
+const endScreen = document.getElementById('end-screen');
+
+const nicknameInput = document.getElementById('nickname');
+const playerDisplay = document.getElementById('player-display');
+const stageText = document.getElementById('stage-text');
+const scoreText = document.getElementById('score-text');
+const instruction = document.getElementById('instruction');
+const confirmBtn = document.getElementById('confirm-btn');
+const nextBtn = document.getElementById('next-btn');
+const topScoreBanner = document.getElementById('top-score-banner');
+const bannerRoundScore = document.getElementById('banner-round-score');
+const bannerStdDev = document.getElementById('banner-std-dev');
+const finalPlayer = document.getElementById('final-player');
+const finalScore = document.getElementById('final-score');
+const reportBody = document.getElementById('report-body');
+
+let playerName = "";
+let currentStage = 0;
+let totalScore = 0;
+
+let userPoint = null;
+let isDragging = false;
+let isStageFinished = false;
+let currentLines = []; 
+let stageHistory = [];
+
+let activePointerId = null;
+let activeTouchId = null;
+let activeInputMode = null;
+
+const stageDefinitions = [
+    { type: "angle-acute", name: "예각 (선 2개)" },
+    { type: "angle-right", name: "직각 (선 2개)" },
+    { type: "angle-obtuse", name: "둔각 (선 2개)" },
+    { type: "equilateral", name: "정삼각형" },
+    { type: "isosceles", name: "이등변삼각형" },
+    { type: "right", name: "직각삼각형" },
+    { type: "acute", name: "예각삼각형" },
+    { type: "obtuse", name: "둔각삼각형" }
+];
+
+// 점 P에서 선분 AB에 이르는 최단 수직 거리와 수선의 발 구하기
+function getDistanceToSegment(p, a, b) {
+    const l2 = Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2);
+    if (l2 === 0) return { distance: Math.hypot(p.x - a.x, p.y - a.y), proj: a };
+    
+    let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
+    t = Math.max(0, Math.min(1, t)); 
+    
+    const proj = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    return {
+        distance: Math.hypot(p.x - proj.x, p.y - proj.y),
+        proj: proj
+    };
+}
+
+// 점이 각도 내부 또는 다각형 내부에 있는지 확인 (외적 사용)
+function isUserPointInside() {
+    if (!userPoint) return false;
+    const cross = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    
+    if (stageDefinitions[currentStage].type.startsWith("angle")) {
+        const v = currentLines[0].A;
+        const r1 = currentLines[0].B;
+        const r2 = currentLines[1].B;
+        const total = cross(v, r1, r2);
+        const c1 = cross(v, r1, userPoint);
+        const c2 = cross(v, userPoint, r2);
+        
+        if (total > 0) return c1 >= 0 && c2 >= 0;
+        return c1 <= 0 && c2 <= 0;
+    } else {
+        const p1 = currentLines[0].A;
+        const p2 = currentLines[1].A;
+        const p3 = currentLines[2].A;
+        const c1 = cross(p1, p2, userPoint) >= 0;
+        const c2 = cross(p2, p3, userPoint) >= 0;
+        const c3 = cross(p3, p1, userPoint) >= 0;
+        const c4 = cross(p1, p2, userPoint) <= 0;
+        const c5 = cross(p2, p3, userPoint) <= 0;
+        const c6 = cross(p3, p1, userPoint) <= 0;
+        return (c1 && c2 && c3) || (c4 && c5 && c6);
+    }
+}
+
+// 직각 기호 그리기 함수
+function drawRightAngleMarker(ctx, proj, segmentA, segmentB, pt, size = 12) {
+    let dx = segmentB.x - segmentA.x;
+    let dy = segmentB.y - segmentA.y;
+    let len = Math.hypot(dx, dy);
+    if(len === 0) return;
+    
+    let ux = dx / len;
+    let uy = dy / len;
+    
+    let pdx = pt.x - proj.x;
+    let pdy = pt.y - proj.y;
+    let plen = Math.hypot(pdx, pdy);
+    if(plen === 0) return;
+    
+    let pux = pdx / plen;
+    let puy = pdy / plen;
+    
+    ctx.beginPath();
+    ctx.moveTo(proj.x + ux * size, proj.y + uy * size);
+    ctx.lineTo(proj.x + ux * size + pux * size, proj.y + uy * size + puy * size);
+    ctx.lineTo(proj.x + pux * size, proj.y + puy * size);
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+}
+
+function generateLines(type) {
+    const center = { x: 250, y: 250 };
+    const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const rotate = (cx, cy, x, y, angle) => {
+        const radians = (Math.PI / 180) * angle;
+        const cos = Math.cos(radians);
+        const sin = Math.sin(radians);
+        return {
+            x: Math.round(cos * (x - cx) - sin * (y - cy) + cx),
+            y: Math.round(sin * (x - cx) + cos * (y - cy) + cy)
+        };
+    };
+
+    if (type.startsWith("angle")) {
+        const vertex = { x: randInt(180, 320), y: randInt(180, 320) };
+        const baseAngle = randInt(0, 360);
+        let angleSpread = 0;
+        if (type === "angle-acute") angleSpread = randInt(40, 75);
+        else if (type === "angle-right") angleSpread = 90;
+        else if (type === "angle-obtuse") angleSpread = randInt(110, 150);
+
+        const ray1 = { 
+            x: vertex.x + 800 * Math.cos(baseAngle * Math.PI / 180), 
+            y: vertex.y + 800 * Math.sin(baseAngle * Math.PI / 180) 
+        };
+        const ray2 = { 
+            x: vertex.x + 800 * Math.cos((baseAngle + angleSpread) * Math.PI / 180), 
+            y: vertex.y + 800 * Math.sin((baseAngle + angleSpread) * Math.PI / 180) 
+        };
+
+        return [
+            { A: vertex, B: ray1 },
+            { A: vertex, B: ray2 }
+        ];
+    } else {
+        let points = [];
+        let isValid = false;
+        const isCollinear = (p1, p2, p3) => Math.abs(p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y)) < 1500;
+
+        while (!isValid) {
+            points = [];
+            if (type === "equilateral") {
+                const r = randInt(120, 160);
+                const angle = randInt(0, 360);
+                for (let i = 0; i < 3; i++) {
+                    const a = angle + i * 120;
+                    points.push({
+                        x: Math.round(center.x + r * Math.cos((a * Math.PI) / 180)),
+                        y: Math.round(center.y + r * Math.sin((a * Math.PI) / 180))
+                    });
+                }
+                isValid = true;
+            } else if (type === "isosceles") {
+                const base = randInt(200, 270);
+                const height = randInt(140, 230);
+                const angle = randInt(0, 360);
+                const p1 = { x: center.x - base / 2, y: center.y + height / 2 };
+                const p2 = { x: center.x + base / 2, y: center.y + height / 2 };
+                const p3 = { x: center.x, y: center.y - height / 2 };
+                points = [p1, p2, p3].map(p => rotate(center.x, center.y, p.x, p.y, angle));
+                isValid = !isCollinear(points[0], points[1], points[2]);
+            } else if (type === "right") {
+                const w = randInt(180, 250);
+                const h = randInt(180, 250);
+                const angle = randInt(0, 360);
+                const p1 = { x: center.x - w / 2, y: center.y - h / 2 };
+                const p2 = { x: center.x - w / 2, y: center.y + h / 2 };
+                const p3 = { x: center.x + w / 2, y: center.y + h / 2 };
+                points = [p1, p2, p3].map(p => rotate(center.x, center.y, p.x, p.y, angle));
+                isValid = !isCollinear(points[0], points[1], points[2]);
+            } else if (type === "acute") {
+                const r = randInt(130, 160);
+                const a1 = randInt(0, 360);
+                const a2 = a1 + randInt(95, 130);
+                const a3 = a2 + randInt(95, 130);
+                [a1, a2, a3].forEach(a => {
+                    points.push({ x: Math.round(center.x + r * Math.cos((a * Math.PI) / 180)), y: Math.round(center.y + r * Math.sin((a * Math.PI) / 180)) });
+                });
+                isValid = !isCollinear(points[0], points[1], points[2]);
+            } else if (type === "obtuse") {
+                const r = randInt(130, 160);
+                const a1 = randInt(0, 360);
+                const a2 = a1 + randInt(40, 75);
+                const a3 = a2 + randInt(40, 75);
+                [a1, a2, a3].forEach(a => {
+                    points.push({ x: Math.round(center.x + r * Math.cos((a * Math.PI) / 180)), y: Math.round(center.y + r * Math.sin((a * Math.PI) / 180)) });
+                });
+                isValid = !isCollinear(points[0], points[1], points[2]);
+            }
+        }
+        return [ { A: points[0], B: points[1] }, { A: points[1], B: points[2] }, { A: points[2], B: points[0] } ];
+    }
+}
+
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+function getCanvasPosFromClient(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+function resetInputState() {
+    activePointerId = null;
+    activeTouchId = null;
+    activeInputMode = null;
+    isDragging = false;
+}
+
+function placeOrGrabPoint(pos) {
+    const clampedX = clamp(pos.x, 20, canvas.width - 20);
+    const clampedY = clamp(pos.y, 20, canvas.height - 20);
+
+    if (!userPoint) {
+        userPoint = { x: clampedX, y: clampedY };
+        isDragging = true;
+        confirmBtn.disabled = false;
+        instruction.innerText = "점(●)을 드래그해서 위치를 세밀하게 조정해 보세요!";
+        draw();
+        return true;
+    }
+
+    const dist = Math.hypot(clampedX - userPoint.x, clampedY - userPoint.y);
+    if (dist < 40) {
+        isDragging = true;
+        draw();
+        return true;
+    }
+
+    if (!isStageFinished) {
+        userPoint = { x: clampedX, y: clampedY };
+        isDragging = true;
+        draw();
+        return true;
+    }
+    return false;
+}
+
+function movePoint(pos) {
+    if (!isDragging || !userPoint) return;
+    userPoint.x = clamp(pos.x, 20, canvas.width - 20);
+    userPoint.y = clamp(pos.y, 20, canvas.height - 20);
+    draw();
+}
+
+function endDrag() { isDragging = false; }
+
+function onPointerDown(e) {
+    if (activeInputMode && activeInputMode !== 'pointer') return;
+    e.preventDefault();
+    activeInputMode = 'pointer';
+    activePointerId = e.pointerId;
+    const started = placeOrGrabPoint(getCanvasPosFromClient(e.clientX, e.clientY));
+    if (started && canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch (e) {} }
+}
+function onPointerMove(e) {
+    if (activeInputMode !== 'pointer' || e.pointerId !== activePointerId || !isDragging) return;
+    e.preventDefault();
+    movePoint(getCanvasPosFromClient(e.clientX, e.clientY));
+}
+function onPointerEnd(e) {
+    if (activeInputMode !== 'pointer' || e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    if (canvas.releasePointerCapture) { try { canvas.releasePointerCapture(e.pointerId); } catch (e) {} }
+    endDrag(); resetInputState();
+}
+
+function findTouchById(list, id) {
+    for (let i = 0; i < list.length; i++) if (list[i].identifier === id) return list[i];
+    return null;
+}
+function onTouchStart(e) {
+    if (activeInputMode) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    e.preventDefault();
+    activeInputMode = 'touch';
+    activeTouchId = touch.identifier;
+    placeOrGrabPoint(getCanvasPosFromClient(touch.clientX, touch.clientY));
+}
+function onTouchMove(e) {
+    if (activeInputMode !== 'touch') return;
+    const touch = findTouchById(e.touches, activeTouchId) || findTouchById(e.changedTouches, activeTouchId);
+    if (!touch || !isDragging) return;
+    e.preventDefault();
+    movePoint(getCanvasPosFromClient(touch.clientX, touch.clientY));
+}
+function onTouchEnd(e) {
+    if (activeInputMode !== 'touch') return;
+    const touch = findTouchById(e.changedTouches, activeTouchId);
+    if (!touch) return;
+    e.preventDefault();
+    endDrag(); resetInputState();
+}
+function onMouseDown(e) {
+    if (activeInputMode) return;
+    e.preventDefault(); activeInputMode = 'mouse';
+    placeOrGrabPoint(getCanvasPosFromClient(e.clientX, e.clientY));
+}
+function onMouseMove(e) {
+    if (activeInputMode !== 'mouse' || !isDragging) return;
+    e.preventDefault(); movePoint(getCanvasPosFromClient(e.clientX, e.clientY));
+}
+function onMouseUp() {
+    if (activeInputMode !== 'mouse') return;
+    endDrag(); resetInputState();
+}
+
+function registerInputHandlers() {
+    if (window.PointerEvent) {
+        canvas.addEventListener('pointerdown', onPointerDown);
+        canvas.addEventListener('pointermove', onPointerMove);
+        canvas.addEventListener('pointerup', onPointerEnd);
+        canvas.addEventListener('pointercancel', onPointerEnd);
+        window.addEventListener('pointerup', onPointerEnd);
+        window.addEventListener('pointercancel', onPointerEnd);
+    } else {
+        canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onTouchEnd, { passive: false });
+        window.addEventListener('touchcancel', onTouchEnd, { passive: false });
+        canvas.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    }
+}
+
+function startGame() {
+    const input = nicknameInput.value.trim();
+    if (!input) { alert("닉네임을 입력해 주세요!"); nicknameInput.focus(); return; }
+    playerName = input;
+    currentStage = 0;
+    totalScore = 0;
+    stageHistory = [];
+
+    playerDisplay.innerText = `👤 ${playerName}`;
+    scoreText.innerText = `총점: ${totalScore}점`;
+
+    startScreen.style.display = 'none';
+    endScreen.style.display = 'none';
+    playScreen.style.display = 'block';
+
+    loadStage();
+}
+
+function loadStage() {
+    userPoint = null;
+    isDragging = false;
+    isStageFinished = false;
+    resetInputState();
+
+    currentLines = generateLines(stageDefinitions[currentStage].type);
+
+    topScoreBanner.style.display = 'none';
+    confirmBtn.style.display = 'inline-block';
+    confirmBtn.disabled = true;
+    nextBtn.style.display = 'none';
+
+    stageText.innerText = `ROUND ${currentStage + 1} / ${stageDefinitions.length}`;
+    instruction.innerHTML = `[${stageDefinitions[currentStage].name}] 주어진 선분에서 <b>같은 거리</b>에 점(●)을 놔보세요!`;
+
+    draw();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#4fc3f7'; 
+    currentLines.forEach(line => {
+        ctx.beginPath();
+        ctx.moveTo(line.A.x, line.A.y);
+        ctx.lineTo(line.B.x, line.B.y);
+        ctx.stroke();
+    });
+
+    let lineResults = [];
+    let distances = [];
+    let avgDist = 0;
+
+    if (userPoint) {
+        lineResults = currentLines.map(line => getDistanceToSegment(userPoint, line.A, line.B));
+        distances = lineResults.map(res => res.distance);
+        avgDist = distances.reduce((a, b) => a + b, 0) / distances.length;
+    }
+
+    if (isStageFinished && lineResults.length > 0 && userPoint) {
+        const isInside = isUserPointInside();
+
+        ctx.beginPath();
+        ctx.arc(userPoint.x, userPoint.y, avgDist, 0, Math.PI * 2);
+        ctx.strokeStyle = isInside ? 'rgba(3, 169, 244, 0.5)' : 'rgba(244, 67, 54, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = isInside ? 'rgba(3, 169, 244, 0.08)' : 'rgba(244, 67, 54, 0.08)';
+        ctx.fill();
+
+        lineResults.forEach((res, idx) => {
+            const distVal = Math.round(res.distance);
+
+            // 점선 (거리)
+            ctx.beginPath();
+            ctx.moveTo(userPoint.x, userPoint.y);
+            ctx.lineTo(res.proj.x, res.proj.y);
+            ctx.strokeStyle = '#555555';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 직각 표시 추가
+            drawRightAngleMarker(ctx, res.proj, currentLines[idx].A, currentLines[idx].B, userPoint);
+
+            // 수선의 발 점
+            ctx.beginPath();
+            ctx.arc(res.proj.x, res.proj.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#0288d1';
+            ctx.fill();
+
+            // 거리 텍스트 배경
+            const midX = (userPoint.x + res.proj.x) / 2;
+            const midY = (userPoint.y + res.proj.y) / 2;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.fillRect(midX - 16, midY - 10, 32, 20);
+            ctx.strokeStyle = "#0288d1";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(midX - 16, midY - 10, 32, 20);
+
+            // 거리 텍스트
+            ctx.font = "bold 13px sans-serif";
+            ctx.fillStyle = "#01579b";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(distVal, midX, midY);
+
+            // 이모지 피드백 로직 개선
+            let emoji = "😊";
+            if (isInside) {
+                // 안에 있을 경우 정상적으로 오차에 따라 표정 변화
+                const diff = res.distance - avgDist;
+                if (Math.abs(diff) > 15) emoji = diff > 0 ? "😡" : "😄";
+            } else {
+                // 바깥쪽에 있을 경우, 가장 거리가 먼 선분에 무조건 화난 표정 부여
+                // (만약 거리가 완벽하게 똑같다면 둘 다/셋 다 화난 표정이 됨)
+                const maxDist = Math.max(...distances);
+                if (res.distance >= maxDist - 5) {
+                    emoji = "😡";
+                } else {
+                    emoji = "😄"; 
+                }
+            }
+            
+            const dirX = res.proj.x - userPoint.x;
+            const dirY = res.proj.y - userPoint.y;
+            const len = Math.hypot(dirX, dirY) || 1;
+            ctx.font = "26px serif";
+            ctx.fillText(emoji, res.proj.x + (dirX / len) * 20, res.proj.y + (dirY / len) * 20);
+        });
+    }
+
+    // 유저가 찍은 점 (동그라미) 그리기
+    if (userPoint) {
+        ctx.beginPath();
+        ctx.arc(userPoint.x, userPoint.y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#e91e63'; 
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+    }
+}
+
+function confirmPosition() {
+    if (isStageFinished || !userPoint) return;
+    isStageFinished = true;
+
+    const lineResults = currentLines.map(line => getDistanceToSegment(userPoint, line.A, line.B));
+    const distances = lineResults.map(res => res.distance);
+    const avgDist = distances.reduce((a, b) => a + b, 0) / distances.length;
+    const isInside = isUserPointInside();
+
+    let roundScore = 0;
+    
+    // 오차는 밖이든 안이든 계산해서 보여줌
+    const variance = distances.reduce((a, b) => a + Math.pow(b - avgDist, 2), 0) / distances.length;
+    const stdDev = Math.sqrt(variance);
+
+    if (isInside) {
+        roundScore = Math.max(0, Math.round(100 - (stdDev * 2.5)));
+    } else {
+        // 범위 이탈 시 오차는 보여주지만 점수는 0점
+        roundScore = 0;
+    }
+
+    totalScore += roundScore;
+    stageHistory.push({
+        round: currentStage + 1,
+        typeName: stageDefinitions[currentStage].name,
+        score: roundScore,
+        stdDev: stdDev.toFixed(1)
+    });
+
+    draw();
+    showTopScoreBanner(roundScore, stdDev, isInside);
+}
+
+function showTopScoreBanner(roundScore, stdDev, isInside) {
+    bannerRoundScore.innerText = `${roundScore}점`;
+    bannerStdDev.innerText = `거리의 오차: ${stdDev.toFixed(1)}`;
+    scoreText.innerText = `총점: ${totalScore}점`;
+
+    topScoreBanner.style.display = 'flex';
+    confirmBtn.style.display = 'none';
+
+    if (currentStage === stageDefinitions.length - 1) {
+        nextBtn.innerText = "최종 점수 확인하기 🏆";
+    } else {
+        nextBtn.innerText = "다음 라운드 ➔";
+    }
+    nextBtn.style.display = 'inline-block';
+    
+    if(isInside) {
+        instruction.innerHTML = "💡 점선 원이 선분에 골고루 닿았는지 직각표시와 함께 확인하세요!";
+    } else {
+        instruction.innerHTML = "❓ 오차는 적은데 왜 0점일까요? 화난 표정(😡)을 힌트 삼아 생각해보세요!";
+    }
+}
+
+function nextStage() {
+    currentStage++;
+    if (currentStage < stageDefinitions.length) {
+        loadStage();
+    } else {
+        showFinalReportScreen();
+    }
+}
+
+function showFinalReportScreen() {
+    playScreen.style.display = 'none';
+    endScreen.style.display = 'block';
+    finalPlayer.innerText = playerName;
+    finalScore.innerText = `${totalScore}점`;
+    renderReportTable();
+}
+
+function renderReportTable() {
+    reportBody.innerHTML = "";
+    stageHistory.forEach(item => {
+        const tr = document.createElement('tr');
+        const tdRound = document.createElement('td'); tdRound.innerText = `ROUND ${item.round}`;
+        const tdType = document.createElement('td'); tdType.innerText = item.typeName;
+        const tdScore = document.createElement('td');
+        const strong = document.createElement('strong'); strong.innerText = `${item.score}점`;
+        tdScore.appendChild(strong);
+        const tdStdDev = document.createElement('td'); 
+        tdStdDev.innerText = item.stdDev;
+        
+        tr.appendChild(tdRound); tr.appendChild(tdType); tr.appendChild(tdScore); tr.appendChild(tdStdDev);
+        reportBody.appendChild(tr);
+    });
+}
+
+function restartGame() {
+    currentStage = 0;
+    totalScore = 0;
+    userPoint = null;
+    isDragging = false;
+    isStageFinished = false;
+    currentLines = [];
+    stageHistory = [];
+    resetInputState();
+    endScreen.style.display = 'none';
+    playScreen.style.display = 'none';
+    startScreen.style.display = 'block';
+    nicknameInput.value = "";
+    nicknameInput.focus();
+}
+
+nicknameInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') startGame();
+});
+
+registerInputHandlers();
+draw();
+</script>
+
+</body>
+</html>
